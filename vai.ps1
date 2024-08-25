@@ -7,6 +7,3 @@ function vai {
     git push
 }
 
-# teste quebrador comentario
-
-# outro teste
