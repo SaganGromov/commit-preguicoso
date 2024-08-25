@@ -6,3 +6,5 @@ function vai {
     git commit -m $message
     git push
 }
+
+# teste quebrador comentario
