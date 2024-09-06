@@ -5,6 +5,9 @@ Adicione o conteúdo do arquivo <code>vai-versao-unix</code> ao seu arquivo <cod
 Caso você não adicione nenhuma mensagem de commit, ou seja, só mande o comando <code>vai</code>, a mensagem de commit enviada será no formato <br><br><code>atualizacao em 23/07/2024 HH:MM:SS</code> <br> <br>
 Para um exemplo concreto, veja, por exemplo, [esse commit](https://github.com/SaganGromov/commit-preguicoso/commit/91b1ac9eb40464f0e116f5f1dcb41d6e54f38161). 
 
+
+<!-- teste -->
+
 ## No Windows:
 
 1. Garanta primeiro que você tenha um perfil no Powershell. Rode <code>Test-Path $PROFILE</code> para verificar (que irá retornar <code>True</code> caso já tenha, <code>False</code> caso contrário). Caso não tenha,
