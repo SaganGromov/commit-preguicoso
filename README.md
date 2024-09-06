@@ -2,7 +2,7 @@
 
 Adicione o conteúdo do arquivo <code>vai-versao-unix</code> ao seu arquivo <code>.bashrc</code> ou <code>.zshrc</code> (geralmente localizado em <code>/home/&lt;seu-usuário&gt;</code>). Agora, toda vez que você estiver trabalhando com um repositório git no terminal (que já esteja apontando pro Github), o comando   <br><br><code>vai "&lt;insira sua mensagem de commit aqui&gt;"</code> <br> <br> simultaneamente adiciona as suas mudanças, as commita com sua mensagem e dá o push para o github, ou seja, temos um atalho para <br><br><code>git add . && git commit -m "&lt;insira sua mensagem de commit aqui&gt;" && git push</code>. 
 
-Caso você não adicione nenhuma mensagem de commit, ou seja, só mande o comando <code>vai</code>, a mensagem de commit enviada será no formato <br><br><code>atualizacao em 23_07_2024 HH:MM:SS</code> <br> <br>
+Caso você não adicione nenhuma mensagem de commit, ou seja, só mande o comando <code>vai</code>, a mensagem de commit enviada será no formato <br><br><code>atualizacao em 23/07/2024 HH:MM:SS</code> <br> <br>
 Para um exemplo concreto, veja, por exemplo, [esse commit](https://github.com/SaganGromov/commit-preguicoso/commit/91b1ac9eb40464f0e116f5f1dcb41d6e54f38161). 
 
 ## No Windows:

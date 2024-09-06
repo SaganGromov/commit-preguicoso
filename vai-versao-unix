@@ -1,6 +1,8 @@
 function vai() {
-    local message="${1:-"atualizacao em $(date -u -d '-3 hours' '+%d_%m_%Y %H:%M:%S')"}"
+    local message="${1:-"atualizacao em $(date -u -d '-3 hours' '+%d-%m-%Y %H:%M:%S' | sed 's/_/\//g')"}"
     git add .
     git commit -m "$message"
     git push
 }
+
+
