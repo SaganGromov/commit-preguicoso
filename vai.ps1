@@ -6,4 +6,3 @@ function vai {
     git commit -m $message
     git push
 }
-
