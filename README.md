@@ -7,6 +7,8 @@ Para um exemplo concreto, veja, por exemplo, [esse commit](https://github.com/Sa
 
 <!-- testando ddd -->
 
+novo teste
+
 ## No Windows:
 
 1. Garanta primeiro que você tenha um perfil no Powershell. Rode <code>Test-Path $PROFILE</code> para verificar (que irá retornar <code>True</code> caso já tenha, <code>False</code> caso contrário). Caso não tenha,
