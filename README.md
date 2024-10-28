@@ -15,3 +15,5 @@ Para um exemplo concreto, veja, por exemplo, [esse commit](https://github.com/Sa
 
 3. Abra seu perfil no Powershell com <br><code>notepad $PROFILE</code> e copie e cole o conteúdo do arquivo <code>vai.ps1</code>. Pronto! Agora <code>vai</code> é um atalho para  <br><br><code>git add . && git commit -m "&lt;insira sua mensagem de commit aqui&gt;" && git push</code><br> <br> cuja mensagem de commit default  é  <br> <br><code>atualizacao em 23_07_2024 HH:MM:SS</code> <br> <br>
 Para um exemplo concreto, veja, por exemplo, [esse commit](https://github.com/SaganGromov/commit-preguicoso/commit/91b1ac9eb40464f0e116f5f1dcb41d6e54f38161).
+
+grep -E '"[^"]*host[^"]*":\s*(\{[^\}]*\}|\[[^\]]*\]|"[^"]*")' filename.json
