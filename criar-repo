@@ -1,0 +1,126 @@
+criarRepo() {
+    local backend="codex"
+    local -a positional=()
+    for arg in "$@"; do
+        case "$arg" in
+            --codex)    backend="codex" ;;
+            --copilot)  backend="copilot" ;;
+            --claude)   backend="claude" ;;
+            *)          positional+=("$arg") ;;
+        esac
+    done
+
+    if [ "${#positional[@]}" -ne 3 ]; then
+        echo "Usage: criarRepo [--codex|--copilot|--claude] <repository-name> publico|privado <path/to/directory>"
+        return 1
+    fi
+
+    local REPO_NAME="${positional[1]}"
+    local PRIVACY="${positional[2]}"
+    local REPO_PATH="${positional[3]}"
+
+    cd "$REPO_PATH" || { echo "Directory not found"; return 1; }
+
+    git init
+
+    if [ "$PRIVACY" = "publico" ]; then
+        gh repo create "$REPO_NAME" --public --source=. --remote=origin || return 1
+    elif [ "$PRIVACY" = "privado" ]; then
+        gh repo create "$REPO_NAME" --private --source=. --remote=origin || return 1
+    else
+        echo "Invalid privacy option. Use 'publico' or 'privado'."
+        return 1
+    fi
+
+    # Build context blob for the AI: file list + contents of small text files.
+    local files_list
+    files_list="$(find . -type f -not -path './.git/*' 2>/dev/null | sort | head -200)"
+
+    local repo_context="Repository name: $REPO_NAME
+Privacy: $PRIVACY
+
+Files in the repository:
+$files_list"
+
+    local content_section="" total_chars=0
+    local -i max_total=40000
+    while IFS= read -r f; do
+        [[ -z "$f" || ! -f "$f" ]] && continue
+        (( total_chars >= max_total )) && break
+        # Skip binary files
+        if file -b --mime "$f" 2>/dev/null | grep -q 'charset=binary'; then
+            continue
+        fi
+        local file_content
+        file_content="$(head -c 8192 "$f" 2>/dev/null)"
+        content_section+="
+
+--- File: $f ---
+$file_content"
+        total_chars=$(( total_chars + ${#file_content} ))
+    done <<< "$files_list"
+    repo_context+="$content_section"
+
+    # README.md: only generate if none exists (case-insensitive check).
+    local existing_readme
+    existing_readme="$(find . -maxdepth 1 -type f -iname 'readme*' 2>/dev/null | head -1)"
+    if [[ -z "$existing_readme" ]]; then
+        echo "Gerando README.md com $backend..."
+        local readme_prompt='You are generating a README.md for a brand-new GitHub repository.
+
+Output rules (strict):
+- Output ONLY the README markdown content. No preamble, no explanation, no surrounding code fences, no "Here is..." lines.
+- Do not run any tools. Use only the information provided.
+- Start with a top-level heading (# Title) using the repository name as the title.
+- Include a short description of what the project does, inferred from filenames and file contents.
+- Optionally add brief sections such as Installation/Usage/Examples ONLY when reasonably inferable from the content.
+- Keep it concise and useful. Do not invent features that are not evident from the files.
+- Write in Brazilian Portuguese unless filenames and content are overwhelmingly in English.'
+        local readme_content
+        if readme_content="$(_aiGen "$backend" "$readme_prompt" "$repo_context")"; then
+            printf '%s\n' "$readme_content" > README.md
+            echo "─── README.md gerado ($backend) ───"
+            cat README.md
+            echo "───────────────────────────────────"
+        else
+            echo "criarRepo: README não gerado, continuando sem ele." >&2
+        fi
+    else
+        echo "README já existe em '$existing_readme', mantendo o original."
+    fi
+
+    git add .
+
+    if git diff --cached --quiet; then
+        echo "criarRepo: nada para commitar." >&2
+        return 1
+    fi
+
+    echo "Gerando commit message inicial com $backend..."
+    local commit_prompt='You are generating the FIRST commit message for a brand-new git repository.
+
+Output rules (strict):
+- Output ONLY the commit message text. No preamble, no explanation, no markdown fences, no surrounding quotes.
+- Do not run any tools. Use only the information provided.
+- Subject line: imperative mood, lowercase, no trailing period, max 72 chars.
+- Use a Conventional Commits prefix when one clearly fits (commonly chore, feat, or docs for an initial commit).
+- STRONGLY PREFER subject-line-only commits. Be terse.
+- Only add a body when the repository genuinely contains many different kinds of files; then blank line + 1-3 short lines wrapped at 72 cols explaining WHY.
+- Write in Brazilian Portuguese unless filenames and content are overwhelmingly in English.'
+    local commit_msg
+    if ! commit_msg="$(_aiGen "$backend" "$commit_prompt" "$repo_context")"; then
+        echo "criarRepo: usando fallback de commit message." >&2
+        commit_msg="chore: commit inicial"
+    fi
+
+    echo "─── commit message ($backend) ───"
+    echo "$commit_msg"
+    echo "─────────────────────────────────"
+
+    git commit -m "$commit_msg" || return 1
+
+    local current_branch
+    current_branch="$(git rev-parse --abbrev-ref HEAD)"
+    git push --set-upstream origin "$current_branch"
+}
+

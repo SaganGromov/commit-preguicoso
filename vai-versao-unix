@@ -1,0 +1,112 @@
+function vai() {
+    local backend="claude"
+    local -a passthrough_args=()
+    for arg in "$@"; do
+        case "$arg" in
+            --codex)    backend="codex" ;;
+            --copilot)  backend="copilot" ;;
+            --claude)   backend="claude" ;;
+            *)          passthrough_args+=("$arg") ;;
+        esac
+    done
+
+    if (( ${#passthrough_args[@]} > 0 )); then
+        local message="${passthrough_args[*]}"
+        git add . && git commit -m "$message" && git push
+        return $?
+    fi
+
+    git add .
+
+    if git diff --cached --quiet; then
+        echo "vai: nada staged, nada a commitar." >&2
+        return 1
+    fi
+
+    local prompt_instructions='You are generating a single git commit message from a staged git diff.
+
+Output rules (strict):
+- Output ONLY the commit message text. No preamble, no explanation, no markdown fences, no surrounding quotes, no "Here is..." lines.
+- Do not run any tools. Do not read files. Use only the diff provided.
+- Subject line: imperative mood, lowercase, no trailing period, max 72 chars.
+- Use a Conventional Commits prefix when one clearly fits: feat, fix, refactor, docs, test, chore, perf, style, build, ci.
+- STRONGLY PREFER subject-line-only commits. Be terse.
+- Only add a body when the change is genuinely non-obvious AND touches many files (>5) or many lines (>100). When in doubt, omit the body.
+- If you do add a body: blank line after subject, wrap at 72 cols, 1-3 short lines explaining WHY (not WHAT).
+- Write in Brazilian Portuguese unless the diff itself is overwhelmingly in English.'
+
+    local diff_content
+    diff_content="$(git diff --cached)"
+
+    local msg exit_code stderr_output
+    local tmp_stderr
+    tmp_stderr="$(mktemp)"
+
+    case "$backend" in
+        codex)
+            msg="$(printf '%s\n' "$diff_content" | codex exec \
+                --ephemeral \
+                --sandbox read-only \
+                --skip-git-repo-check \
+                "$prompt_instructions" 2>"$tmp_stderr")"
+            exit_code=$?
+            ;;
+        copilot)
+            local full_prompt="${prompt_instructions}
+
+<diff>
+${diff_content}
+</diff>"
+            msg="$(copilot -p "$full_prompt" --no-ask-user -s 2>"$tmp_stderr")"
+            exit_code=$?
+            ;;
+        claude)
+            msg="$(printf '%s\n' "$diff_content" | claude --bare -p \
+                --append-system-prompt "$prompt_instructions" 2>"$tmp_stderr")"
+            exit_code=$?
+            ;;
+    esac
+
+    stderr_output="$(cat "$tmp_stderr")"
+    rm -f "$tmp_stderr"
+
+    # Strip leading/trailing whitespace and stray code fences
+    msg="${msg#\`\`\`*$'\n'}"
+    msg="${msg%\`\`\`}"
+    msg="${msg#"${msg%%[![:space:]]*}"}"
+    msg="${msg%"${msg##*[![:space:]]}"}"
+
+    # Check the backend actually succeeded
+    if (( exit_code != 0 )); then
+        echo "vai: $backend falhou (exit $exit_code). Abortando." >&2
+        [[ -n "$stderr_output" ]] && echo "stderr: $stderr_output" >&2
+        [[ -n "$msg" ]] && echo "stdout: $msg" >&2
+        return 1
+    fi
+
+    if [[ -z "$msg" ]]; then
+        echo "vai: $backend retornou vazio. Abortando." >&2
+        [[ -n "$stderr_output" ]] && echo "stderr: $stderr_output" >&2
+        return 1
+    fi
+
+    # Sanity check: detect common error/login patterns leaking into stdout
+    local lower_msg="${msg:l}"
+    if [[ "$lower_msg" == *"please run /login"* ]] \
+        || [[ "$lower_msg" == *"not logged in"* ]] \
+        || [[ "$lower_msg" == *"not authenticated"* ]] \
+        || [[ "$lower_msg" == *"authentication failed"* ]] \
+        || [[ "$lower_msg" == *"api key"*"invalid"* ]] \
+        || [[ "$lower_msg" == *"rate limit"* ]] \
+        || [[ "$lower_msg" == "error:"* ]]; then
+        echo "vai: $backend retornou erro em vez de commit message:" >&2
+        echo "  $msg" >&2
+        return 1
+    fi
+
+    echo "─── commit message ($backend) ───"
+    echo "$msg"
+    echo "─────────────────────────────────"
+
+    git commit -m "$msg" && git push
+}
